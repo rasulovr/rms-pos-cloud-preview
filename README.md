@@ -1,49 +1,37 @@
-# RMS POS Cloud Preview v0.1
+# RMS POS v1.2 full structure fix
 
-Временная cloud-версия POS для тестирования интерфейса и логики.
+This package fixes the most common blank-screen cause: wrong file placement or missing package dependency.
 
-## Запуск локально
-
-```bash
-npm install
-cp .env.example .env
-npm run dev
-```
-
-## Деплой на Vercel
-
-1. Создать отдельный GitHub repo, например `rms-pos-cloud-preview`.
-2. Загрузить туда файлы проекта.
-3. В Vercel создать новый проект из этого repo.
-4. Добавить Environment Variables:
+Required structure:
 
 ```text
-VITE_SUPABASE_URL
-VITE_SUPABASE_ANON_KEY
-VITE_RMS_POS_TERMINAL_ID
+sql/
+src/
+  App.jsx
+  main.jsx
+  styles.css
+  supabaseClient.js
+.env.example
+README.md
+index.html
+package.json
 ```
 
-5. Build command:
+Important:
+
+- `main.jsx`, `styles.css`, `supabaseClient.js`, `App.jsx` must be inside `src/`.
+- There must be no `main.jsx`, `styles.css`, or `supabaseClient.js` in the repository root.
+- `package.json` must include `@supabase/supabase-js`.
+- `index.html` must point to `/src/main.jsx`.
+
+Vercel:
 
 ```text
-npm run build
+Redeploy without cache
 ```
 
-6. Output directory:
+Test PIN:
 
 ```text
-dist
+1111
 ```
-
-## Supabase
-
-Выполнить SQL:
-
-```text
-sql/rms_pos_cloud_preview_tables.sql
-```
-
-## Важно
-
-Это cloud-preview.  
-Боевой POS позже будет отдельным локальным `.exe` с SQLite и offline sync.
