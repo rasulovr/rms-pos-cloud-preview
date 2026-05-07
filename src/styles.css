@@ -1,0 +1,926 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --bg: #e9ece6;
+  --paper: #fbfaf4;
+  --paper-2: #f3efe5;
+  --ink: #17201b;
+  --muted: #73796f;
+  --line: rgba(23, 32, 27, 0.1);
+  --dark: #17201b;
+  --green: #24513d;
+  --green-2: #316a50;
+  --gold: #c8a45c;
+  --red: #b64234;
+  --shadow: 0 18px 54px rgba(23, 32, 27, 0.12);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.eyebrow {
+  margin: 0 0 7px;
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.toast {
+  position: fixed;
+  z-index: 60;
+  left: 50%;
+  top: 18px;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 24px);
+  padding: 12px 18px;
+  border-radius: 999px;
+  background: var(--dark);
+  color: #fffaf0;
+  box-shadow: 0 16px 40px rgba(23, 32, 27, 0.24);
+  font-weight: 850;
+}
+
+.loadingShell,
+.loginShell {
+  min-height: 100vh;
+  padding: 24px;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at top right, rgba(200, 164, 92, 0.22), transparent 30%),
+    linear-gradient(135deg, #1f362b, #17201b 52%, #2b382f);
+}
+
+.loadingCard {
+  width: min(520px, 100%);
+  border-radius: 34px;
+  padding: 36px;
+  background: rgba(251, 250, 244, 0.96);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.loadingLogo {
+  width: 70px;
+  height: 70px;
+  margin: 0 auto 18px;
+  border-radius: 24px;
+  background: var(--green);
+  color: #fffaf0;
+  display: grid;
+  place-items: center;
+  font-weight: 950;
+  letter-spacing: -1px;
+}
+
+.loadingCard h1 {
+  margin: 0;
+  font-size: 30px;
+  letter-spacing: -0.06em;
+}
+
+.loadingCard p {
+  margin: 12px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.loadingCard button {
+  height: 50px;
+  margin-top: 22px;
+  padding: 0 18px;
+  border-radius: 16px;
+  background: var(--green);
+  color: #fffaf0;
+  font-weight: 900;
+}
+
+.errorCard .loadingLogo {
+  background: var(--red);
+}
+
+.loginShell {
+  grid-template-columns: minmax(0, 1.1fr) 420px;
+  gap: 24px;
+}
+
+.loginVisual,
+.pinPanel {
+  width: 100%;
+  height: min(720px, calc(100vh - 48px));
+  border-radius: 38px;
+  box-shadow: var(--shadow);
+}
+
+.loginVisual {
+  padding: 46px;
+  color: #fffaf0;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03)),
+    url("data:image/svg+xml,%3Csvg width='900' height='900' viewBox='0 0 900 900' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23fffaf0' stroke-opacity='.10' stroke-width='3'%3E%3Cpath d='M80 620C250 350 520 250 820 350'/%3E%3Cpath d='M100 720C280 500 530 430 830 520'/%3E%3Ccircle cx='265' cy='275' r='120'/%3E%3Ccircle cx='640' cy='570' r='180'/%3E%3Cpath d='M250 610h260M300 660h340M360 710h250'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: cover;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.brandBadge {
+  width: 92px;
+  height: 92px;
+  border-radius: 30px;
+  background: #fffaf0;
+  color: var(--green);
+  display: grid;
+  place-items: center;
+  font-weight: 950;
+  font-size: 26px;
+  letter-spacing: -1px;
+}
+
+.loginBrand p {
+  margin: 34px 0 10px;
+  color: rgba(255, 250, 240, 0.72);
+  font-weight: 800;
+}
+
+.loginBrand h1 {
+  max-width: 640px;
+  margin: 0;
+  font-size: clamp(44px, 6vw, 92px);
+  line-height: 0.9;
+  letter-spacing: -0.08em;
+}
+
+.loginBrand span {
+  display: block;
+  max-width: 620px;
+  margin-top: 22px;
+  color: rgba(255, 250, 240, 0.72);
+  font-size: 18px;
+  line-height: 1.55;
+}
+
+.loginStats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.loginStats div {
+  padding: 18px;
+  border-radius: 24px;
+  background: rgba(255, 250, 240, 0.1);
+  border: 1px solid rgba(255, 250, 240, 0.12);
+}
+
+.loginStats small {
+  display: block;
+  color: rgba(255, 250, 240, 0.56);
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10px;
+}
+
+.loginStats strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 18px;
+}
+
+.pinPanel {
+  padding: 34px;
+  background: rgba(251, 250, 244, 0.98);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.pinTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.pinTop h2 {
+  margin: 0;
+  font-size: 30px;
+  letter-spacing: -0.06em;
+}
+
+.pinTop button {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background: var(--paper-2);
+  font-weight: 900;
+}
+
+.pinDots {
+  height: 74px;
+  border-radius: 24px;
+  background: var(--paper-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.pinDots span {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(23, 32, 27, 0.15);
+}
+
+.pinDots span.filled {
+  background: var(--green);
+  box-shadow: 0 0 0 8px rgba(36, 81, 61, 0.09);
+}
+
+.pinHint,
+.pinError {
+  min-height: 38px;
+  padding: 12px 2px 0;
+  text-align: center;
+  font-size: 14px;
+}
+
+.pinHint {
+  color: var(--muted);
+}
+
+.pinError {
+  color: var(--red);
+  font-weight: 900;
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 11px;
+  margin-top: 12px;
+}
+
+.keypad button {
+  height: 68px;
+  border-radius: 22px;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--line);
+  font-size: 26px;
+  font-weight: 950;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+
+.keypad button:hover {
+  transform: translateY(-1px);
+  background: #fffaf0;
+}
+
+.keypad .mutedKey {
+  color: var(--muted);
+  font-size: 20px;
+}
+
+.loginButton {
+  height: 62px;
+  margin-top: 16px;
+  border-radius: 22px;
+  background: var(--green);
+  color: #fffaf0;
+  box-shadow: 0 16px 34px rgba(36, 81, 61, 0.26);
+  font-weight: 950;
+  font-size: 17px;
+}
+
+.posShell {
+  min-height: 100vh;
+  padding: 14px;
+  background:
+    radial-gradient(circle at top right, rgba(200, 164, 92, 0.15), transparent 26%),
+    var(--bg);
+}
+
+.posTopbar {
+  min-height: 80px;
+  border-radius: 28px;
+  padding: 13px 16px;
+  background: rgba(251, 250, 244, 0.94);
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 34px rgba(23, 32, 27, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.topIdentity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.topLogo {
+  width: 54px;
+  height: 54px;
+  border-radius: 18px;
+  background: var(--green);
+  color: #fffaf0;
+  display: grid;
+  place-items: center;
+  font-weight: 950;
+  letter-spacing: -1px;
+}
+
+.topIdentity h1 {
+  margin: 0;
+  font-size: 23px;
+  letter-spacing: -0.06em;
+}
+
+.topIdentity p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.topMetrics {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topMetrics div {
+  min-width: 134px;
+  padding: 10px 13px;
+  border-radius: 18px;
+  background: var(--paper-2);
+}
+
+.topMetrics span {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.topMetrics strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 16px;
+}
+
+.topMetrics button {
+  height: 48px;
+  padding: 0 16px;
+  border-radius: 16px;
+  background: var(--paper-2);
+  color: var(--ink);
+  font-weight: 900;
+}
+
+.topMetrics .darkTopButton {
+  background: var(--dark);
+  color: #fffaf0;
+}
+
+.posLayout {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.78fr) minmax(420px, 1.32fr) minmax(380px, 0.95fr);
+  gap: 14px;
+  height: calc(100vh - 108px);
+}
+
+.hallPanel,
+.menuPanel,
+.checkPanel {
+  min-height: 0;
+  border-radius: 30px;
+  padding: 17px;
+  box-shadow: 0 14px 40px rgba(23, 32, 27, 0.08);
+  display: flex;
+  flex-direction: column;
+}
+
+.hallPanel,
+.menuPanel {
+  background: rgba(251, 250, 244, 0.96);
+  border: 1px solid var(--line);
+}
+
+.checkPanel {
+  background: var(--dark);
+  color: #fffaf0;
+}
+
+.panelTitle,
+.menuHeader,
+.checkHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 13px;
+}
+
+.panelTitle h2,
+.menuHeader h2,
+.checkHeader h2 {
+  margin: 0;
+  font-size: 25px;
+  letter-spacing: -0.06em;
+}
+
+.panelTitle span,
+.checkHeader b {
+  padding: 8px 11px;
+  border-radius: 999px;
+  background: var(--paper-2);
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.checkHeader b {
+  background: rgba(255, 250, 240, 0.1);
+  color: #fffaf0;
+}
+
+.checkHeader span {
+  display: inline-block;
+  margin-top: 7px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(200, 164, 92, 0.16);
+  color: #dfc486;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.menuHeader input {
+  width: min(260px, 42%);
+  height: 44px;
+  border-radius: 15px;
+  border: 1px solid var(--line);
+  background: #fff;
+  padding: 0 14px;
+  outline: none;
+  color: var(--ink);
+}
+
+.pillRow,
+.categoryStrip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+  margin-bottom: 5px;
+}
+
+.pillRow button,
+.categoryStrip button {
+  flex: 0 0 auto;
+  min-height: 39px;
+  padding: 0 13px;
+  border-radius: 999px;
+  background: var(--paper-2);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.pillRow button.active,
+.categoryStrip button.active {
+  background: var(--green);
+  color: #fffaf0;
+}
+
+.tablesGrid {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 11px;
+  padding-right: 2px;
+}
+
+.tableTile {
+  min-height: 126px;
+  border-radius: 23px;
+  padding: 15px;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+
+.tableTile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 26px rgba(23, 32, 27, 0.08);
+}
+
+.tableTile.selected {
+  border-color: var(--green);
+  box-shadow: 0 0 0 4px rgba(36, 81, 61, 0.1);
+}
+
+.tableTile.busy {
+  background: #f7eedc;
+}
+
+.tableTile span,
+.productTile span {
+  color: var(--gold);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 950;
+}
+
+.tableTile strong {
+  display: block;
+  font-size: 18px;
+  letter-spacing: -0.045em;
+}
+
+.tableTile small {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.tableTile em {
+  font-style: normal;
+  color: var(--green);
+  font-weight: 950;
+}
+
+.productsGrid {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
+  gap: 11px;
+  padding-right: 2px;
+}
+
+.productTile {
+  min-height: 124px;
+  border-radius: 23px;
+  padding: 15px;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+
+.productTile:hover {
+  transform: translateY(-2px);
+  background: #fffdf8;
+  box-shadow: 0 12px 26px rgba(23, 32, 27, 0.08);
+}
+
+.productTile strong {
+  font-size: 17px;
+  line-height: 1.15;
+  letter-spacing: -0.04em;
+}
+
+.productTile em {
+  font-style: normal;
+  font-size: 19px;
+  color: var(--green);
+  font-weight: 950;
+}
+
+.emptyBlock,
+.emptyCheck {
+  min-height: 240px;
+  border-radius: 24px;
+  border: 1px dashed var(--line);
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 24px;
+  color: var(--muted);
+}
+
+.emptyBlock {
+  grid-column: 1 / -1;
+}
+
+.emptyBlock strong,
+.emptyCheck strong {
+  display: block;
+  color: var(--ink);
+  margin-bottom: 8px;
+  font-size: 20px;
+}
+
+.emptyCheck {
+  height: 100%;
+  border-color: rgba(255, 250, 240, 0.2);
+  color: rgba(255, 250, 240, 0.65);
+}
+
+.emptyCheck strong {
+  color: #fffaf0;
+}
+
+.emptyCheck p,
+.emptyBlock p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.checkItems {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 2px;
+}
+
+.checkItem {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 11px;
+  padding: 12px;
+  border-radius: 20px;
+  background: rgba(255, 250, 240, 0.08);
+  border: 1px solid rgba(255, 250, 240, 0.08);
+}
+
+.checkItemInfo strong {
+  display: block;
+  font-size: 15px;
+  letter-spacing: -0.035em;
+}
+
+.checkItemInfo span {
+  display: block;
+  margin-top: 4px;
+  color: rgba(255, 250, 240, 0.56);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.qtyStepper {
+  height: 38px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 250, 240, 0.12);
+  display: flex;
+  align-items: center;
+}
+
+.qtyStepper button {
+  width: 38px;
+  height: 38px;
+  background: transparent;
+  color: #fffaf0;
+  font-size: 22px;
+  font-weight: 950;
+}
+
+.qtyStepper b {
+  min-width: 28px;
+  text-align: center;
+}
+
+.checkItem em {
+  min-width: 76px;
+  text-align: right;
+  font-style: normal;
+  color: #dfc486;
+  font-weight: 950;
+}
+
+.totalCard {
+  margin-top: 13px;
+  padding: 14px;
+  border-radius: 24px;
+  background: rgba(255, 250, 240, 0.08);
+  border: 1px solid rgba(255, 250, 240, 0.08);
+}
+
+.totalCard div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  color: rgba(255, 250, 240, 0.68);
+}
+
+.totalCard strong {
+  color: #fffaf0;
+}
+
+.totalCard .grand {
+  border-top: 1px solid rgba(255, 250, 240, 0.16);
+  margin-top: 6px;
+  padding-top: 14px;
+  color: #fffaf0;
+}
+
+.totalCard .grand strong {
+  color: #dfc486;
+  font-size: 28px;
+  letter-spacing: -0.05em;
+}
+
+.commandGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.commandGrid button {
+  min-height: 52px;
+  border-radius: 17px;
+  background: rgba(255, 250, 240, 0.12);
+  color: #fffaf0;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.commandGrid .danger {
+  background: rgba(182, 66, 52, 0.2);
+  color: #ffb4ab;
+}
+
+.paymentBlock {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.paymentBlock button {
+  min-height: 62px;
+  border-radius: 20px;
+  font-weight: 950;
+  font-size: 16px;
+}
+
+.cashPay {
+  background: #dfc486;
+  color: var(--dark);
+}
+
+.cardPay {
+  background: #fffaf0;
+  color: var(--dark);
+}
+
+@media (max-width: 1260px) {
+  .posLayout {
+    grid-template-columns: 0.85fr 1.15fr;
+    height: auto;
+  }
+
+  .checkPanel {
+    grid-column: 1 / -1;
+    min-height: 560px;
+  }
+}
+
+@media (max-width: 920px) {
+  .loginShell {
+    grid-template-columns: 1fr;
+  }
+
+  .loginVisual,
+  .pinPanel {
+    height: auto;
+    min-height: 420px;
+  }
+
+  .loginStats {
+    grid-template-columns: 1fr;
+  }
+
+  .posTopbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .topMetrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .topMetrics div,
+  .topMetrics button {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .posLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .hallPanel,
+  .menuPanel,
+  .checkPanel {
+    border-radius: 24px;
+  }
+
+  .productsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .menuHeader {
+    flex-direction: column;
+  }
+
+  .menuHeader input {
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .loginShell,
+  .posShell {
+    padding: 10px;
+  }
+
+  .loginVisual,
+  .pinPanel {
+    border-radius: 26px;
+    padding: 24px;
+  }
+
+  .loginBrand h1 {
+    font-size: 46px;
+  }
+
+  .tablesGrid,
+  .productsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .checkItem {
+    grid-template-columns: 1fr;
+  }
+
+  .checkItem em {
+    text-align: left;
+  }
+
+  .commandGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .paymentBlock {
+    grid-template-columns: 1fr;
+  }
+}
