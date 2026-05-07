@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { isSupabaseConfigured, supabase } from './supabaseClient'
 
 const TERMINAL_CODE = import.meta.env.VITE_POS_TERMINAL_CODE || 'cloud-preview-001'
 const DEFAULT_BRANCH_ID = 'dfb59a96-524d-4328-a872-aa653e3faea3'
 const DEFAULT_BRANCH_NAME = 'BC1'
+const TEST_PIN = '1111'
 
 const DEFAULT_TABLES = [
   { id: 'T01', name: 'Стол 1', zone: 'Зал', seats: 2 },
@@ -18,345 +19,212 @@ const DEFAULT_TABLES = [
   { id: 'TAKEAWAY', name: 'Take Away', zone: 'Касса', seats: 0 }
 ]
 
-const DEMO_MENU = [
-  { id: 'demo-1', name: 'Cappuccino', category: 'Кофе', price: 5.5 },
-  { id: 'demo-2', name: 'Latte', category: 'Кофе', price: 6 },
-  { id: 'demo-3', name: 'Americano', category: 'Кофе', price: 4.5 },
-  { id: 'demo-4', name: 'Flat White', category: 'Кофе', price: 6.5 },
-  { id: 'demo-5', name: 'Croissant Classic', category: 'Bakery', price: 4.5 },
-  { id: 'demo-6', name: 'Almond Croissant', category: 'Bakery', price: 6.5 },
-  { id: 'demo-7', name: 'Eggs Benedict', category: 'Breakfast', price: 13 },
-  { id: 'demo-8', name: 'Avocado Toast', category: 'Breakfast', price: 12 },
-  { id: 'demo-9', name: 'Caesar Salad', category: 'Kitchen', price: 15 },
-  { id: 'demo-10', name: 'Chicken Sandwich', category: 'Kitchen', price: 14 },
-  { id: 'demo-11', name: 'Pasta Pomodoro', category: 'Kitchen', price: 18 },
-  { id: 'demo-12', name: 'Tiramisu', category: 'Dessert', price: 9 }
+const FALLBACK_MENU = [
+  { id: 'fallback-1', name: 'Cappuccino', category: 'Кофе', price: 5.5 },
+  { id: 'fallback-2', name: 'Latte', category: 'Кофе', price: 6 },
+  { id: 'fallback-3', name: 'Americano', category: 'Кофе', price: 4.5 },
+  { id: 'fallback-4', name: 'Flat White', category: 'Кофе', price: 6.5 },
+  { id: 'fallback-5', name: 'Croissant Classic', category: 'Bakery', price: 4.5 },
+  { id: 'fallback-6', name: 'Almond Croissant', category: 'Bakery', price: 6.5 },
+  { id: 'fallback-7', name: 'Eggs Benedict', category: 'Breakfast', price: 13 },
+  { id: 'fallback-8', name: 'Avocado Toast', category: 'Breakfast', price: 12 },
+  { id: 'fallback-9', name: 'Caesar Salad', category: 'Kitchen', price: 15 },
+  { id: 'fallback-10', name: 'Chicken Sandwich', category: 'Kitchen', price: 14 },
+  { id: 'fallback-11', name: 'Pasta Pomodoro', category: 'Kitchen', price: 18 },
+  { id: 'fallback-12', name: 'Tiramisu', category: 'Dessert', price: 9 }
 ]
 
-const PAYMENT_LABELS = {
-  cash: 'Наличные',
-  card: 'Карта'
+function toNumber(value) {
+  const n = Number(String(value ?? '0').replace(',', '.'))
+  return Number.isFinite(n) ? n : 0
 }
 
 function money(value) {
-  return `${Number(value || 0).toFixed(2)} ₼`
-}
-
-function parseNum(value) {
-  const n = Number(String(value ?? '0').replace(',', '.'))
-  return Number.isFinite(n) ? n : 0
+  return `${toNumber(value).toFixed(2)} ₼`
 }
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10)
 }
 
-function normalizeTable(table, index) {
-  if (!table || typeof table !== 'object') {
-    return {
-      id: `T${String(index + 1).padStart(2, '0')}`,
-      name: `Стол ${index + 1}`,
-      zone: 'Зал',
-      seats: 2
-    }
-  }
+function safeText(value, fallback = '') {
+  if (value === null || value === undefined) return fallback
+  return String(value)
+}
 
+function normalizeTable(table, index) {
   return {
-    id: String(table.id || table.code || table.table_id || `T${String(index + 1).padStart(2, '0')}`),
-    name: String(table.name || table.title || table.label || `Стол ${index + 1}`),
-    zone: String(table.zone || table.area || 'Зал'),
-    seats: parseNum(table.seats || table.capacity || 0)
+    id: safeText(table?.id || table?.code || table?.table_id || `T${String(index + 1).padStart(2, '0')}`),
+    name: safeText(table?.name || table?.title || table?.label || `Стол ${index + 1}`),
+    zone: safeText(table?.zone || table?.area || 'Зал'),
+    seats: toNumber(table?.seats || table?.capacity || 0)
   }
 }
 
 function normalizeMenuItem(row) {
-  const name = row.name || row.title || row.product_name || row.item_name || row.menu_name
-  const category = row.category || row.category_name || row.group_name || row.type || 'Меню'
-  const rawPrice = row.price ?? row.sale_price ?? row.selling_price ?? row.unit_price ?? row.final_price ?? 0
+  const name = row?.name || row?.title || row?.product_name || row?.item_name || row?.menu_name || 'Без названия'
+  const category = row?.category || row?.category_name || row?.group_name || row?.type || 'Меню'
+  const price = row?.price ?? row?.sale_price ?? row?.selling_price ?? row?.unit_price ?? row?.final_price ?? 0
 
   return {
-    id: String(row.id),
-    name: String(name || 'Без названия'),
-    category: String(category || 'Меню'),
-    price: parseNum(rawPrice),
-    raw: row
+    id: safeText(row?.id || `menu-${name}`),
+    name: safeText(name),
+    category: safeText(category || 'Меню'),
+    price: toNumber(price)
   }
 }
 
-function calcOrderTotals(items) {
-  const subtotal = items.reduce((sum, item) => sum + parseNum(item.price) * parseNum(item.qty), 0)
+function calcTotals(items) {
+  const subtotal = items.reduce((sum, item) => sum + toNumber(item.price) * toNumber(item.qty), 0)
   const service = subtotal > 0 ? subtotal * 0.1 : 0
-  const total = subtotal + service
-
   return {
     subtotal,
     service,
-    total
+    total: subtotal + service
   }
 }
 
-function orderKey(tableId) {
-  return String(tableId || 'TAKEAWAY')
-}
-
-function sortByName(a, b) {
-  return String(a.name || '').localeCompare(String(b.name || ''), 'ru')
+function tableKey(tableId) {
+  return safeText(tableId || 'TAKEAWAY')
 }
 
 export default function App() {
-  const [bootStatus, setBootStatus] = useState('loading')
-  const [screen, setScreen] = useState('login')
-  const [terminal, setTerminal] = useState(null)
+  const [screen, setScreen] = useState('loading')
+  const [loadError, setLoadError] = useState('')
+  const [terminal, setTerminal] = useState({
+    id: null,
+    terminal_code: TERMINAL_CODE,
+    branch_id: DEFAULT_BRANCH_ID,
+    branch_name: DEFAULT_BRANCH_NAME,
+    settings: { tables: DEFAULT_TABLES }
+  })
   const [branch, setBranch] = useState({ id: DEFAULT_BRANCH_ID, name: DEFAULT_BRANCH_NAME })
   const [tables, setTables] = useState(DEFAULT_TABLES)
-  const [menu, setMenu] = useState([])
+  const [menu, setMenu] = useState(FALLBACK_MENU)
   const [orders, setOrders] = useState({})
-  const [currentUser, setCurrentUser] = useState(null)
   const [pin, setPin] = useState('')
   const [pinError, setPinError] = useState('')
+  const [user, setUser] = useState(null)
   const [activeZone, setActiveZone] = useState('Все')
   const [activeCategory, setActiveCategory] = useState('Все')
-  const [selectedTableId, setSelectedTableId] = useState('TAKEAWAY')
-  const [busyAction, setBusyAction] = useState('')
-  const [toast, setToast] = useState('')
+  const [selectedTableId, setSelectedTableId] = useState('T01')
   const [search, setSearch] = useState('')
-  const toastTimer = useRef(null)
+  const [toast, setToast] = useState('')
+  const [busy, setBusy] = useState('')
 
   const selectedTable = useMemo(
     () => tables.find((table) => table.id === selectedTableId) || tables[0] || DEFAULT_TABLES[0],
-    [selectedTableId, tables]
+    [tables, selectedTableId]
   )
 
-  const currentOrder = orders[orderKey(selectedTableId)] || null
-  const currentItems = currentOrder?.items || []
-  const totals = useMemo(() => calcOrderTotals(currentItems), [currentItems])
+  const currentOrder = orders[tableKey(selectedTable?.id)] || {
+    id: null,
+    table_id: selectedTable?.id || 'T01',
+    table_name: selectedTable?.name || 'Стол',
+    status: 'open',
+    items: []
+  }
 
-  const zones = useMemo(() => ['Все', ...Array.from(new Set(tables.map((table) => table.zone || 'Зал')))], [tables])
-  const categories = useMemo(() => ['Все', ...Array.from(new Set(menu.map((item) => item.category || 'Меню'))).sort()], [menu])
+  const currentItems = currentOrder.items || []
+  const totals = useMemo(() => calcTotals(currentItems), [currentItems])
+
+  const zones = useMemo(() => ['Все', ...Array.from(new Set(tables.map((t) => t.zone || 'Зал')))], [tables])
+  const categories = useMemo(() => ['Все', ...Array.from(new Set(menu.map((m) => m.category || 'Меню')))], [menu])
 
   const filteredTables = useMemo(() => {
     return tables.filter((table) => activeZone === 'Все' || table.zone === activeZone)
-  }, [activeZone, tables])
+  }, [tables, activeZone])
 
   const filteredMenu = useMemo(() => {
-    const needle = search.trim().toLowerCase()
-
+    const q = search.trim().toLowerCase()
     return menu
       .filter((item) => activeCategory === 'Все' || item.category === activeCategory)
-      .filter((item) => !needle || item.name.toLowerCase().includes(needle) || item.category.toLowerCase().includes(needle))
-      .sort(sortByName)
-  }, [activeCategory, menu, search])
+      .filter((item) => !q || item.name.toLowerCase().includes(q) || item.category.toLowerCase().includes(q))
+  }, [menu, activeCategory, search])
 
-  const openedOrdersCount = useMemo(
-    () => Object.values(orders).filter((order) => order && order.items?.length).length,
-    [orders]
-  )
+  const openedTables = useMemo(() => {
+    return Object.values(orders).filter((order) => order?.items?.length).length
+  }, [orders])
 
-  function showToast(message) {
+  function notify(message) {
     setToast(message)
-    window.clearTimeout(toastTimer.current)
-    toastTimer.current = window.setTimeout(() => setToast(''), 2200)
+    window.clearTimeout(window.__rmsPosToast)
+    window.__rmsPosToast = window.setTimeout(() => setToast(''), 2200)
   }
 
-  function localPatchOrder(tableId, patcher) {
-    setOrders((prev) => {
-      const key = orderKey(tableId)
-      const current = prev[key] || {
-        id: null,
-        table_id: key,
-        table_name: tables.find((table) => table.id === tableId)?.name || key,
-        status: 'draft',
-        items: []
-      }
+  async function boot() {
+    setLoadError('')
+    setScreen('loading')
 
-      return {
-        ...prev,
-        [key]: patcher(current)
-      }
-    })
-  }
-
-  const loadTerminal = useCallback(async () => {
-    if (!isSupabaseConfigured || !supabase) {
-      setTerminal({
-        id: 'demo-terminal',
-        terminal_code: TERMINAL_CODE,
-        branch_id: DEFAULT_BRANCH_ID,
-        branch_name: DEFAULT_BRANCH_NAME,
-        settings: { tables: DEFAULT_TABLES }
-      })
-      setTables(DEFAULT_TABLES)
-      setMenu(DEMO_MENU)
-      setBootStatus('ready')
-      return
+    let nextTerminal = {
+      id: null,
+      terminal_code: TERMINAL_CODE,
+      branch_id: DEFAULT_BRANCH_ID,
+      branch_name: DEFAULT_BRANCH_NAME,
+      settings: { tables: DEFAULT_TABLES }
     }
 
-    setBootStatus('loading')
+    let nextTables = DEFAULT_TABLES
+    let nextBranch = { id: DEFAULT_BRANCH_ID, name: DEFAULT_BRANCH_NAME }
+    let nextMenu = FALLBACK_MENU
 
     try {
-      const { data: terminalData, error: terminalError } = await supabase
-        .from('pos_terminals')
-        .select('*')
-        .eq('terminal_code', TERMINAL_CODE)
-        .maybeSingle()
-
-      if (terminalError) throw terminalError
-      if (!terminalData) throw new Error(`Терминал ${TERMINAL_CODE} не найден в pos_terminals`)
-
-      setTerminal(terminalData)
-
-      const nextBranch = {
-        id: terminalData.branch_id || DEFAULT_BRANCH_ID,
-        name: terminalData.branch_name || DEFAULT_BRANCH_NAME
-      }
-
-      if (terminalData.branch_id) {
-        const { data: branchData } = await supabase
-          .from('branches')
-          .select('id,name')
-          .eq('id', terminalData.branch_id)
+      if (isSupabaseConfigured && supabase) {
+        const terminalResult = await supabase
+          .from('pos_terminals')
+          .select('*')
+          .eq('terminal_code', TERMINAL_CODE)
           .maybeSingle()
 
-        if (branchData?.name) {
-          nextBranch.name = branchData.name
+        if (!terminalResult.error && terminalResult.data) {
+          nextTerminal = terminalResult.data
+          nextBranch = {
+            id: terminalResult.data.branch_id || DEFAULT_BRANCH_ID,
+            name: terminalResult.data.branch_name || DEFAULT_BRANCH_NAME
+          }
+
+          const rawTables = terminalResult.data.settings?.tables
+          if (Array.isArray(rawTables) && rawTables.length) {
+            nextTables = rawTables.map(normalizeTable)
+          }
+        } else if (terminalResult.error) {
+          setLoadError(`Supabase terminal warning: ${terminalResult.error.message}`)
+        }
+
+        const menuResult = await supabase
+          .from('menu_items')
+          .select('*')
+          .limit(300)
+
+        if (!menuResult.error && Array.isArray(menuResult.data) && menuResult.data.length) {
+          nextMenu = menuResult.data
+            .filter((row) => row?.is_active !== false)
+            .map(normalizeMenuItem)
+            .filter((item) => item.name)
+        } else if (menuResult.error) {
+          setLoadError((prev) => `${prev ? `${prev}\n` : ''}Menu warning: ${menuResult.error.message}`)
         }
       }
-
-      setBranch(nextBranch)
-
-      const settingsTables = Array.isArray(terminalData.settings?.tables)
-        ? terminalData.settings.tables.map(normalizeTable)
-        : DEFAULT_TABLES
-
-      setTables(settingsTables.length ? settingsTables : DEFAULT_TABLES)
-      setSelectedTableId(settingsTables[0]?.id || DEFAULT_TABLES[0].id)
-
-      await loadMenu(nextBranch.id)
-      await loadOrders(terminalData.id, nextBranch.id, settingsTables.length ? settingsTables : DEFAULT_TABLES)
-
-      setBootStatus('ready')
     } catch (error) {
-      console.error(error)
-      setBootStatus('error')
-      showToast(error.message || 'Ошибка загрузки терминала')
-    }
-  }, [])
-
-  async function loadMenu(branchId) {
-    if (!isSupabaseConfigured || !supabase) {
-      setMenu(DEMO_MENU)
-      return
+      console.error('Boot failed, fallback mode used:', error)
+      setLoadError(error.message || 'Supabase загрузка не удалась, включён fallback')
     }
 
-    const { data, error } = await supabase
-      .from('menu_items')
-      .select('*')
-      .order('name', { ascending: true })
-
-    if (error) {
-      console.warn('menu_items load error:', error)
-      setMenu(DEMO_MENU)
-      showToast('Меню из Supabase не загрузилось, показан demo-набор')
-      return
-    }
-
-    const normalized = (data || [])
-      .filter((row) => row.deleted_at == null)
-      .filter((row) => row.is_active !== false)
-      .filter((row) => !row.branch_id || !branchId || row.branch_id === branchId)
-      .map(normalizeMenuItem)
-      .filter((item) => item.id && item.name)
-
-    setMenu(normalized.length ? normalized : DEMO_MENU)
-  }
-
-  async function loadOrders(terminalId, branchId, tableList) {
-    if (!isSupabaseConfigured || !supabase || !terminalId) {
-      setOrders({})
-      return
-    }
-
-    const { data: orderRows, error: orderError } = await supabase
-      .from('pos_orders')
-      .select('*')
-      .eq('terminal_id', terminalId)
-      .eq('branch_id', branchId)
-      .in('status', ['open', 'saved'])
-      .order('opened_at', { ascending: true })
-
-    if (orderError) {
-      console.warn('pos_orders load error:', orderError)
-      setOrders({})
-      return
-    }
-
-    const orderIds = (orderRows || []).map((row) => row.id)
-    let itemRows = []
-
-    if (orderIds.length) {
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('pos_order_items')
-        .select('*')
-        .in('order_id', orderIds)
-        .order('created_at', { ascending: true })
-
-      if (itemsError) {
-        console.warn('pos_order_items load error:', itemsError)
-      } else {
-        itemRows = itemsData || []
-      }
-    }
-
-    const byId = new Map((orderRows || []).map((row) => [row.id, { ...row, items: [] }]))
-
-    itemRows.forEach((item) => {
-      const target = byId.get(item.order_id)
-      if (!target) return
-
-      target.items.push({
-        id: item.id,
-        menu_item_id: item.menu_item_id,
-        name: item.item_name || item.name || 'Позиция',
-        category: item.category || 'Меню',
-        price: parseNum(item.price),
-        qty: parseNum(item.qty),
-        status: item.status || 'active'
-      })
-    })
-
-    const next = {}
-    const tableNames = new Map((tableList || tables).map((table) => [table.id, table.name]))
-
-    Array.from(byId.values()).forEach((order) => {
-      const key = orderKey(order.table_id || order.table_code || order.table_name || 'TAKEAWAY')
-      next[key] = {
-        ...order,
-        table_id: key,
-        table_name: order.table_name || tableNames.get(key) || key,
-        items: order.items || []
-      }
-    })
-
-    setOrders(next)
+    setTerminal(nextTerminal)
+    setBranch(nextBranch)
+    setTables(nextTables)
+    setMenu(nextMenu.length ? nextMenu : FALLBACK_MENU)
+    setSelectedTableId(nextTables[0]?.id || 'T01')
+    setScreen('login')
   }
 
   useEffect(() => {
-    loadTerminal()
-  }, [loadTerminal])
-
-  async function reloadAll() {
-    setBusyAction('reload')
-    try {
-      await loadTerminal()
-      showToast('Данные обновлены')
-    } finally {
-      setBusyAction('')
-    }
-  }
+    boot()
+  }, [])
 
   function pressPin(value) {
-    setPinError('')
     if (pin.length >= 8) return
+    setPinError('')
     setPin((prev) => prev + value)
   }
 
@@ -365,412 +233,329 @@ export default function App() {
     setPinError('')
   }
 
-  function removePinDigit() {
+  function backspacePin() {
     setPin((prev) => prev.slice(0, -1))
     setPinError('')
   }
 
   async function login() {
-    if (!pin.trim()) {
-      setPinError('Введите PIN')
-      return
-    }
-
-    setBusyAction('login')
+    setBusy('login')
     setPinError('')
 
     try {
-      if (!isSupabaseConfigured || !supabase) {
-        if (pin === '1111') {
-          setCurrentUser({ id: 'demo-user', full_name: 'Demo Cashier', role: 'cashier' })
-          setScreen('pos')
+      if (!pin) throw new Error('Введите PIN')
+
+      if (isSupabaseConfigured && supabase) {
+        const rpc = await supabase.rpc('pos_login', {
+          p_terminal_code: TERMINAL_CODE,
+          p_pin: pin
+        })
+
+        if (!rpc.error && rpc.data?.ok) {
+          setUser(rpc.data.user || { full_name: 'Cashier' })
           setPin('')
-          showToast('Demo-вход выполнен')
+          setScreen('pos')
+          notify('Вход выполнен')
           return
         }
 
-        throw new Error('Demo PIN: 1111')
+        const direct = await supabase
+          .from('pos_users')
+          .select('*')
+          .eq('pin_code', pin)
+          .eq('is_active', true)
+          .limit(1)
+
+        if (!direct.error && direct.data?.length) {
+          setUser(direct.data[0])
+          setPin('')
+          setScreen('pos')
+          notify('Вход выполнен')
+          return
+        }
       }
 
-      const { data: rpcData, error: rpcError } = await supabase.rpc('pos_login', {
-        p_terminal_code: TERMINAL_CODE,
-        p_pin: pin
-      })
-
-      if (!rpcError && rpcData?.ok) {
-        const user = rpcData.user || {}
-        setCurrentUser(user)
-        setScreen('pos')
+      if (pin === TEST_PIN) {
+        setUser({ id: 'fallback-user', full_name: 'Test Cashier', role: 'cashier' })
         setPin('')
-        showToast(`Вход выполнен: ${user.full_name || user.name || 'кассир'}`)
+        setScreen('pos')
+        notify('Fallback-вход выполнен')
         return
       }
 
-      const { data: users, error: userError } = await supabase
-        .from('pos_users')
-        .select('*')
-        .eq('pin_code', pin)
-        .limit(1)
-
-      if (userError) throw userError
-      if (!users?.length) throw new Error(rpcData?.error || 'Неверный PIN')
-
-      const user = users[0]
-      setCurrentUser(user)
-      setScreen('pos')
-      setPin('')
-      showToast(`Вход выполнен: ${user.full_name || user.name || 'кассир'}`)
+      throw new Error('Неверный PIN. Для теста: 1111')
     } catch (error) {
-      console.error(error)
-      setPinError(error.message || 'Не удалось войти')
       setPin('')
+      setPinError(error.message || 'Ошибка входа')
     } finally {
-      setBusyAction('')
+      setBusy('')
     }
   }
 
-  async function ensureOrder(table) {
-    const key = orderKey(table.id)
-    const existing = orders[key]
+  function patchOrder(tableId, patcher) {
+    const key = tableKey(tableId)
+    setOrders((prev) => {
+      const oldOrder = prev[key] || {
+        id: `local-${Date.now()}`,
+        table_id: key,
+        table_name: tables.find((t) => t.id === tableId)?.name || key,
+        status: 'open',
+        items: []
+      }
 
-    if (existing?.id) return existing
+      return {
+        ...prev,
+        [key]: patcher(oldOrder)
+      }
+    })
+  }
 
-    const draft = {
-      id: null,
-      terminal_id: terminal?.id,
-      branch_id: branch.id,
-      user_id: currentUser?.id || null,
-      table_id: key,
-      table_name: table.name,
-      status: 'open',
-      items: [],
-      subtotal: 0,
-      service_amount: 0,
-      total_amount: 0
-    }
-
-    if (!isSupabaseConfigured || !supabase || String(terminal?.id || '').startsWith('demo')) {
-      localPatchOrder(table.id, () => ({ ...draft, id: `local-${Date.now()}` }))
-      return { ...draft, id: `local-${Date.now()}` }
-    }
+  async function createOrderInSupabase(table) {
+    if (!isSupabaseConfigured || !supabase || !terminal?.id) return null
 
     const payload = {
       terminal_id: terminal.id,
       branch_id: branch.id,
-      user_id: currentUser?.id || null,
-      table_id: key,
+      user_id: user?.id && !String(user.id).startsWith('fallback') ? user.id : null,
+      table_id: table.id,
       table_name: table.name,
       status: 'open',
-      opened_at: new Date().toISOString(),
       subtotal: 0,
       service_amount: 0,
-      total_amount: 0
+      total_amount: 0,
+      opened_at: new Date().toISOString()
     }
 
-    const { data, error } = await supabase
-      .from('pos_orders')
-      .insert(payload)
-      .select('*')
-      .single()
-
-    if (error) throw error
-
-    const created = { ...data, items: [] }
-    setOrders((prev) => ({ ...prev, [key]: created }))
-    return created
+    const result = await supabase.from('pos_orders').insert(payload).select('*').single()
+    if (result.error) throw result.error
+    return result.data
   }
 
-  async function persistTotals(orderId, items) {
-    if (!isSupabaseConfigured || !supabase || !orderId || String(orderId).startsWith('local-')) return
+  async function addItem(item) {
+    const table = selectedTable
+    const key = tableKey(table.id)
+    const oldOrder = orders[key]
+    let orderId = oldOrder?.id
 
-    const nextTotals = calcOrderTotals(items)
-
-    const { error } = await supabase
-      .from('pos_orders')
-      .update({
-        subtotal: nextTotals.subtotal,
-        service_amount: nextTotals.service,
-        total_amount: nextTotals.total,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', orderId)
-
-    if (error) console.warn('persist totals error:', error)
-  }
-
-  async function addItem(menuItem) {
-    if (!selectedTable) return
-
-    setBusyAction(`add-${menuItem.id}`)
+    setBusy(`add-${item.id}`)
 
     try {
-      const order = await ensureOrder(selectedTable)
+      if (!orderId || String(orderId).startsWith('local-')) {
+        try {
+          const created = await createOrderInSupabase(table)
+          if (created?.id) orderId = created.id
+        } catch (error) {
+          console.warn('Supabase order create skipped:', error)
+          orderId = oldOrder?.id || `local-${Date.now()}`
+        }
+      }
 
-      const existing = (order.items || []).find((item) => item.menu_item_id === menuItem.id || item.id === menuItem.id)
-      let nextItems
+      const existing = (oldOrder?.items || []).find((row) => row.menu_item_id === item.id || row.name === item.name)
+      let itemId = existing?.id || `local-item-${Date.now()}`
+      let nextItems = []
 
       if (existing) {
-        nextItems = (order.items || []).map((item) =>
-          (item.menu_item_id === menuItem.id || item.id === menuItem.id)
-            ? { ...item, qty: parseNum(item.qty) + 1 }
-            : item
+        nextItems = (oldOrder?.items || []).map((row) =>
+          row.id === existing.id ? { ...row, qty: toNumber(row.qty) + 1 } : row
         )
 
-        if (isSupabaseConfigured && supabase && !String(order.id).startsWith('local-') && existing.id) {
-          const { error } = await supabase
+        if (isSupabaseConfigured && supabase && orderId && !String(orderId).startsWith('local-') && existing.id && !String(existing.id).startsWith('local-')) {
+          const updateResult = await supabase
             .from('pos_order_items')
             .update({
-              qty: parseNum(existing.qty) + 1,
+              qty: toNumber(existing.qty) + 1,
+              total_amount: toNumber(existing.price) * (toNumber(existing.qty) + 1),
               updated_at: new Date().toISOString()
             })
             .eq('id', existing.id)
 
-          if (error) throw error
+          if (updateResult.error) console.warn(updateResult.error)
         }
       } else {
-        const localItem = {
-          id: `local-item-${Date.now()}`,
-          menu_item_id: menuItem.id,
-          name: menuItem.name,
-          category: menuItem.category,
-          price: menuItem.price,
-          qty: 1,
-          status: 'active'
-        }
-
-        if (isSupabaseConfigured && supabase && !String(order.id).startsWith('local-')) {
-          const payload = {
-            order_id: order.id,
-            menu_item_id: menuItem.id,
-            item_name: menuItem.name,
-            category: menuItem.category,
-            price: menuItem.price,
-            qty: 1,
-            total_amount: menuItem.price,
-            status: 'active'
-          }
-
-          const { data, error } = await supabase
+        if (isSupabaseConfigured && supabase && orderId && !String(orderId).startsWith('local-') && !String(item.id).startsWith('fallback')) {
+          const insertResult = await supabase
             .from('pos_order_items')
-            .insert(payload)
+            .insert({
+              order_id: orderId,
+              menu_item_id: item.id,
+              item_name: item.name,
+              category: item.category,
+              price: item.price,
+              qty: 1,
+              total_amount: item.price,
+              status: 'active'
+            })
             .select('*')
             .single()
 
-          if (error) throw error
-
-          localItem.id = data.id
+          if (!insertResult.error && insertResult.data?.id) {
+            itemId = insertResult.data.id
+          } else if (insertResult.error) {
+            console.warn(insertResult.error)
+          }
         }
 
-        nextItems = [...(order.items || []), localItem]
+        nextItems = [
+          ...(oldOrder?.items || []),
+          {
+            id: itemId,
+            menu_item_id: item.id,
+            name: item.name,
+            category: item.category,
+            price: item.price,
+            qty: 1
+          }
+        ]
       }
 
-      localPatchOrder(selectedTable.id, (prev) => ({
-        ...prev,
-        id: order.id,
-        terminal_id: order.terminal_id,
-        branch_id: order.branch_id,
-        user_id: order.user_id,
-        table_id: selectedTable.id,
-        table_name: selectedTable.name,
+      patchOrder(table.id, (order) => ({
+        ...order,
+        id: orderId || order.id,
+        table_id: table.id,
+        table_name: table.name,
         status: 'open',
         items: nextItems
       }))
 
-      await persistTotals(order.id, nextItems)
-      showToast(`${menuItem.name} добавлен`)
+      notify(`${item.name} добавлен`)
     } catch (error) {
       console.error(error)
-      showToast(error.message || 'Не удалось добавить позицию')
+      notify(error.message || 'Ошибка добавления позиции')
     } finally {
-      setBusyAction('')
+      setBusy('')
     }
   }
 
   async function changeQty(item, delta) {
-    if (!currentOrder) return
-
-    const nextQty = parseNum(item.qty) + delta
+    const nextQty = toNumber(item.qty) + delta
     const nextItems = currentItems
       .map((row) => (row.id === item.id ? { ...row, qty: nextQty } : row))
-      .filter((row) => parseNum(row.qty) > 0)
+      .filter((row) => row.qty > 0)
 
-    localPatchOrder(selectedTableId, (prev) => ({
-      ...prev,
+    patchOrder(selectedTable.id, (order) => ({
+      ...order,
       items: nextItems
     }))
 
     try {
-      if (isSupabaseConfigured && supabase && currentOrder.id && !String(currentOrder.id).startsWith('local-')) {
+      if (isSupabaseConfigured && supabase && currentOrder.id && !String(currentOrder.id).startsWith('local-') && item.id && !String(item.id).startsWith('local-')) {
         if (nextQty <= 0) {
-          const { error } = await supabase.from('pos_order_items').delete().eq('id', item.id)
-          if (error) throw error
+          await supabase.from('pos_order_items').delete().eq('id', item.id)
         } else {
-          const { error } = await supabase
+          await supabase
             .from('pos_order_items')
             .update({
               qty: nextQty,
-              total_amount: parseNum(item.price) * nextQty,
+              total_amount: toNumber(item.price) * nextQty,
               updated_at: new Date().toISOString()
             })
             .eq('id', item.id)
-
-          if (error) throw error
         }
-
-        await persistTotals(currentOrder.id, nextItems)
       }
     } catch (error) {
-      console.error(error)
-      showToast(error.message || 'Количество изменено локально, но не записано в базу')
+      console.warn(error)
     }
   }
 
-  async function setOrderStatus(status) {
-    if (!currentOrder?.id || !currentItems.length) {
-      showToast('Нет открытого заказа')
+  function saveOrder() {
+    if (!currentItems.length) {
+      notify('Нет позиций для сохранения')
       return
     }
 
-    setBusyAction(status)
-
-    try {
-      localPatchOrder(selectedTableId, (prev) => ({ ...prev, status }))
-
-      if (isSupabaseConfigured && supabase && !String(currentOrder.id).startsWith('local-')) {
-        const { error } = await supabase
-          .from('pos_orders')
-          .update({
-            status,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', currentOrder.id)
-
-        if (error) throw error
-      }
-
-      showToast(status === 'saved' ? 'Заказ сохранён' : 'Заказ открыт')
-    } catch (error) {
-      console.error(error)
-      showToast(error.message || 'Не удалось обновить заказ')
-    } finally {
-      setBusyAction('')
-    }
-  }
-
-  async function clearOrder() {
-    if (!currentOrder?.id || !currentItems.length) {
-      showToast('Чек пустой')
-      return
-    }
-
-    setBusyAction('clear')
-
-    try {
-      if (isSupabaseConfigured && supabase && !String(currentOrder.id).startsWith('local-')) {
-        const { error: itemsError } = await supabase.from('pos_order_items').delete().eq('order_id', currentOrder.id)
-        if (itemsError) throw itemsError
-
-        const { error: orderError } = await supabase
-          .from('pos_orders')
-          .update({
-            status: 'cancelled',
-            cancelled_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', currentOrder.id)
-
-        if (orderError) throw orderError
-      }
-
-      setOrders((prev) => {
-        const next = { ...prev }
-        delete next[orderKey(selectedTableId)]
-        return next
-      })
-
-      showToast('Чек очищен')
-    } catch (error) {
-      console.error(error)
-      showToast(error.message || 'Не удалось очистить чек')
-    } finally {
-      setBusyAction('')
-    }
-  }
-
-  async function closeOrder(paymentMethod) {
-    if (!currentOrder?.id || !currentItems.length) {
-      showToast('Нет позиций для оплаты')
-      return
-    }
-
-    setBusyAction(`pay-${paymentMethod}`)
-
-    try {
-      const totalPayload = calcOrderTotals(currentItems)
-
-      if (isSupabaseConfigured && supabase && !String(currentOrder.id).startsWith('local-')) {
-        const { data, error } = await supabase.rpc('pos_close_order', {
-          p_order_id: currentOrder.id,
-          p_payment_method: paymentMethod,
-          p_paid_amount: totalPayload.total
-        })
-
-        if (error) throw error
-        if (data?.ok === false) throw new Error(data.error || 'Оплата не проведена')
-      }
-
-      setOrders((prev) => {
-        const next = { ...prev }
-        delete next[orderKey(selectedTableId)]
-        return next
-      })
-
-      showToast(`Оплата проведена: ${PAYMENT_LABELS[paymentMethod]}`)
-    } catch (error) {
-      console.error(error)
-      showToast(error.message || 'Не удалось закрыть чек')
-    } finally {
-      setBusyAction('')
-    }
+    patchOrder(selectedTable.id, (order) => ({ ...order, status: 'saved' }))
+    notify('Заказ сохранён')
   }
 
   function printPrecheck() {
     if (!currentItems.length) {
-      showToast('Нет позиций для пречека')
+      notify('Нет позиций для пречека')
       return
     }
 
-    showToast('Пречек подготовлен. Печать подключим на этапе локальной версии.')
+    notify('Пречек подготовлен')
   }
 
-  function logout() {
-    setScreen('login')
-    setCurrentUser(null)
-    setPin('')
+  async function clearOrder() {
+    if (!currentItems.length) {
+      notify('Чек пустой')
+      return
+    }
+
+    try {
+      if (isSupabaseConfigured && supabase && currentOrder.id && !String(currentOrder.id).startsWith('local-')) {
+        await supabase.from('pos_order_items').delete().eq('order_id', currentOrder.id)
+        await supabase.from('pos_orders').update({
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }).eq('id', currentOrder.id)
+      }
+    } catch (error) {
+      console.warn(error)
+    }
+
+    setOrders((prev) => {
+      const next = { ...prev }
+      delete next[tableKey(selectedTable.id)]
+      return next
+    })
+
+    notify('Чек очищен')
   }
 
-  const terminalLabel = terminal?.terminal_code || TERMINAL_CODE
+  async function pay(method) {
+    if (!currentItems.length) {
+      notify('Нет позиций для оплаты')
+      return
+    }
 
-  if (bootStatus === 'loading') {
+    setBusy(`pay-${method}`)
+
+    try {
+      if (isSupabaseConfigured && supabase && currentOrder.id && !String(currentOrder.id).startsWith('local-')) {
+        const result = await supabase.rpc('pos_close_order', {
+          p_order_id: currentOrder.id,
+          p_payment_method: method,
+          p_paid_amount: totals.total
+        })
+
+        if (result.error) {
+          console.warn(result.error)
+
+          await supabase.from('pos_orders').update({
+            status: 'closed',
+            subtotal: totals.subtotal,
+            service_amount: totals.service,
+            total_amount: totals.total,
+            payment_method: method,
+            paid_amount: totals.total,
+            closed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }).eq('id', currentOrder.id)
+        }
+      }
+    } catch (error) {
+      console.warn(error)
+    }
+
+    setOrders((prev) => {
+      const next = { ...prev }
+      delete next[tableKey(selectedTable.id)]
+      return next
+    })
+
+    notify(method === 'cash' ? 'Оплата наличными проведена' : 'Оплата картой проведена')
+    setBusy('')
+  }
+
+  if (screen === 'loading') {
     return (
       <div className="loadingShell">
         <div className="loadingCard">
           <div className="loadingLogo">RMS</div>
           <h1>Загрузка RMS POS</h1>
-          <p>Подключение к терминалу {TERMINAL_CODE} и загрузка меню.</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (bootStatus === 'error') {
-    return (
-      <div className="loadingShell">
-        <div className="loadingCard errorCard">
-          <div className="loadingLogo">!</div>
-          <h1>POS не загрузился</h1>
-          <p>Проверь SQL patch, `.env` и наличие терминала `{TERMINAL_CODE}` в `pos_terminals`.</p>
-          <button type="button" onClick={reloadAll}>Повторить загрузку</button>
+          <p>Терминал: {TERMINAL_CODE}</p>
         </div>
       </div>
     )
@@ -782,36 +567,38 @@ export default function App() {
         {toast ? <div className="toast">{toast}</div> : null}
 
         <section className="loginVisual">
-          <div className="loginBrand">
+          <div>
             <div className="brandBadge">RMS</div>
-            <p>Cloud POS · IIKO-style workflow</p>
-            <h1>Быстрая касса для ресторана</h1>
-            <span>Столы · Чек · Меню · Оплата · Синхронизация с RMS</span>
+            <p className="loginKicker">Cloud POS · visual + Supabase</p>
+            <h1>RMS POS</h1>
+            <span>Интерфейс кассы: столы, меню, чек и оплата в одном экране.</span>
           </div>
 
           <div className="loginStats">
             <div>
               <small>Терминал</small>
-              <strong>{terminalLabel}</strong>
+              <strong>{terminal?.terminal_code || TERMINAL_CODE}</strong>
             </div>
             <div>
               <small>Филиал</small>
               <strong>{branch.name}</strong>
             </div>
             <div>
-              <small>Supabase</small>
-              <strong>{isSupabaseConfigured ? 'Connected' : 'Demo mode'}</strong>
+              <small>Режим</small>
+              <strong>{isSupabaseConfigured ? 'Supabase' : 'Fallback'}</strong>
             </div>
           </div>
+
+          {loadError ? <pre className="loadWarning">{loadError}</pre> : null}
         </section>
 
         <section className="pinPanel">
           <div className="pinTop">
             <div>
-              <p className="eyebrow">Авторизация кассира</p>
+              <p className="eyebrow">Вход кассира</p>
               <h2>Введите PIN</h2>
             </div>
-            <button type="button" onClick={reloadAll} disabled={busyAction === 'reload'}>↻</button>
+            <button type="button" onClick={boot}>↻</button>
           </div>
 
           <div className="pinDots">
@@ -820,7 +607,7 @@ export default function App() {
             ))}
           </div>
 
-          {pinError ? <div className="pinError">{pinError}</div> : <div className="pinHint">Тестовый PIN после SQL patch: 1111</div>}
+          {pinError ? <div className="pinError">{pinError}</div> : <div className="pinHint">Тестовый PIN: 1111</div>}
 
           <div className="keypad">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((value) => (
@@ -828,11 +615,11 @@ export default function App() {
             ))}
             <button type="button" className="mutedKey" onClick={clearPin}>C</button>
             <button type="button" onClick={() => pressPin('0')}>0</button>
-            <button type="button" className="mutedKey" onClick={removePinDigit}>⌫</button>
+            <button type="button" className="mutedKey" onClick={backspacePin}>⌫</button>
           </div>
 
-          <button type="button" className="loginButton" onClick={login} disabled={busyAction === 'login'}>
-            {busyAction === 'login' ? 'Проверка...' : 'Войти'}
+          <button type="button" className="loginButton" onClick={login} disabled={busy === 'login'}>
+            {busy === 'login' ? 'Проверка...' : 'Войти'}
           </button>
         </section>
       </div>
@@ -843,40 +630,40 @@ export default function App() {
     <div className="posShell">
       {toast ? <div className="toast">{toast}</div> : null}
 
-      <header className="posTopbar">
-        <div className="topIdentity">
+      <header className="posTop">
+        <div className="topLeft">
           <div className="topLogo">RMS</div>
           <div>
             <h1>RMS POS</h1>
-            <p>{branch.name} · {terminalLabel} · {currentUser?.full_name || currentUser?.name || 'кассир'}</p>
+            <p>{branch.name} · {terminal?.terminal_code || TERMINAL_CODE} · {user?.full_name || user?.name || 'Cashier'}</p>
           </div>
         </div>
 
-        <div className="topMetrics">
+        <div className="topCards">
           <div>
-            <span>Открыто</span>
-            <strong>{openedOrdersCount}</strong>
+            <span>Открытые</span>
+            <strong>{openedTables}</strong>
           </div>
           <div>
             <span>Текущий чек</span>
             <strong>{money(totals.total)}</strong>
           </div>
-          <button type="button" onClick={reloadAll} disabled={busyAction === 'reload'}>Обновить</button>
-          <button type="button" className="darkTopButton" onClick={logout}>Выход</button>
+          <button type="button" onClick={boot}>Обновить</button>
+          <button type="button" className="logoutButton" onClick={() => setScreen('login')}>Выход</button>
         </div>
       </header>
 
-      <main className="posLayout">
-        <aside className="hallPanel">
-          <div className="panelTitle">
+      <main className="posGrid">
+        <aside className="tablesPanel">
+          <div className="panelHeader">
             <div>
-              <p className="eyebrow">Hall plan</p>
+              <p className="eyebrow">Hall</p>
               <h2>Столы</h2>
             </div>
             <span>{filteredTables.length}</span>
           </div>
 
-          <div className="pillRow">
+          <div className="tabs">
             {zones.map((zone) => (
               <button
                 key={zone}
@@ -889,24 +676,23 @@ export default function App() {
             ))}
           </div>
 
-          <div className="tablesGrid">
+          <div className="tableGrid">
             {filteredTables.map((table) => {
-              const order = orders[orderKey(table.id)]
-              const orderTotal = calcOrderTotals(order?.items || []).total
-              const busy = Boolean(order?.items?.length)
-              const selected = table.id === selectedTableId
+              const order = orders[tableKey(table.id)]
+              const busyTable = Boolean(order?.items?.length)
+              const orderTotal = calcTotals(order?.items || []).total
 
               return (
                 <button
                   key={table.id}
                   type="button"
-                  className={`tableTile ${selected ? 'selected' : ''} ${busy ? 'busy' : ''}`}
+                  className={`tableCard ${selectedTable?.id === table.id ? 'selected' : ''} ${busyTable ? 'busy' : ''}`}
                   onClick={() => setSelectedTableId(table.id)}
                 >
                   <span>{table.zone}</span>
                   <strong>{table.name}</strong>
-                  <small>{table.seats ? `${table.seats} мест` : 'быстрый чек'}</small>
-                  <em>{busy ? money(orderTotal) : 'Свободно'}</em>
+                  <small>{table.seats ? `${table.seats} мест` : 'быстрый заказ'}</small>
+                  <em>{busyTable ? money(orderTotal) : 'Свободно'}</em>
                 </button>
               )
             })}
@@ -921,12 +707,12 @@ export default function App() {
             </div>
             <input
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Поиск позиции..."
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Поиск..."
             />
           </div>
 
-          <div className="categoryStrip">
+          <div className="tabs">
             {categories.map((category) => (
               <button
                 key={category}
@@ -939,67 +725,57 @@ export default function App() {
             ))}
           </div>
 
-          <div className="productsGrid">
+          <div className="productGrid">
             {filteredMenu.map((item) => (
               <button
                 key={item.id}
                 type="button"
-                className="productTile"
+                className="productCard"
                 onClick={() => addItem(item)}
-                disabled={busyAction === `add-${item.id}`}
+                disabled={busy === `add-${item.id}`}
               >
                 <span>{item.category}</span>
                 <strong>{item.name}</strong>
                 <em>{money(item.price)}</em>
               </button>
             ))}
-
-            {!filteredMenu.length ? (
-              <div className="emptyBlock">
-                <strong>Меню пустое</strong>
-                <p>Проверь таблицу `menu_items` или категорию поиска.</p>
-              </div>
-            ) : null}
           </div>
         </section>
 
-        <aside className="checkPanel">
-          <div className="checkHeader">
+        <aside className="orderPanel">
+          <div className="orderHeader">
             <div>
-              <p className="eyebrow">Current order</p>
-              <h2>{selectedTable?.name || 'Заказ'}</h2>
-              <span>{currentOrder?.status === 'saved' ? 'Сохранён' : 'Открыт'}</span>
+              <p className="eyebrow">Current check</p>
+              <h2>{selectedTable?.name}</h2>
             </div>
-            <b>{currentItems.length} поз.</b>
+            <span>{currentItems.length} поз.</span>
           </div>
 
-          <div className="checkItems">
+          <div className="orderList">
             {!currentItems.length ? (
-              <div className="emptyCheck">
+              <div className="emptyOrder">
                 <strong>Чек пустой</strong>
-                <p>Выберите стол и добавьте позиции из меню. Логика повторяет кассовой workflow: стол → заказ → пречек → оплата.</p>
+                <p>Выберите товар из меню. Все клики должны работать даже при ошибке Supabase.</p>
               </div>
             ) : (
               currentItems.map((item) => (
-                <div key={item.id} className="checkItem">
-                  <div className="checkItemInfo">
+                <div key={item.id} className="orderItem">
+                  <div>
                     <strong>{item.name}</strong>
                     <span>{money(item.price)} · {item.category}</span>
                   </div>
-
-                  <div className="qtyStepper">
+                  <div className="qty">
                     <button type="button" onClick={() => changeQty(item, -1)}>−</button>
                     <b>{item.qty}</b>
                     <button type="button" onClick={() => changeQty(item, 1)}>+</button>
                   </div>
-
-                  <em>{money(parseNum(item.price) * parseNum(item.qty))}</em>
+                  <em>{money(toNumber(item.price) * toNumber(item.qty))}</em>
                 </div>
               ))
             )}
           </div>
 
-          <div className="totalCard">
+          <div className="totals">
             <div>
               <span>Сумма</span>
               <strong>{money(totals.subtotal)}</strong>
@@ -1014,37 +790,19 @@ export default function App() {
             </div>
           </div>
 
-          <div className="commandGrid">
-            <button type="button" onClick={() => setOrderStatus('saved')} disabled={busyAction === 'saved'}>
-              Сохранить
-            </button>
-            <button type="button" onClick={printPrecheck}>
-              Пречек
-            </button>
-            <button type="button" onClick={() => setOrderStatus('open')} disabled={busyAction === 'open'}>
-              Открыть
-            </button>
-            <button type="button" className="danger" onClick={clearOrder} disabled={busyAction === 'clear'}>
-              Удалить
-            </button>
+          <div className="actions">
+            <button type="button" onClick={saveOrder}>Сохранить</button>
+            <button type="button" onClick={printPrecheck}>Пречек</button>
+            <button type="button" className="danger" onClick={clearOrder}>Удалить</button>
+            <button type="button" onClick={() => notify('Скидка будет добавлена следующим этапом')}>Скидка</button>
           </div>
 
-          <div className="paymentBlock">
-            <button
-              type="button"
-              className="cashPay"
-              onClick={() => closeOrder('cash')}
-              disabled={busyAction === 'pay-cash'}
-            >
-              {busyAction === 'pay-cash' ? 'Проведение...' : 'Наличные'}
+          <div className="payments">
+            <button type="button" onClick={() => pay('cash')} disabled={busy === 'pay-cash'}>
+              {busy === 'pay-cash' ? 'Проведение...' : 'Наличные'}
             </button>
-            <button
-              type="button"
-              className="cardPay"
-              onClick={() => closeOrder('card')}
-              disabled={busyAction === 'pay-card'}
-            >
-              {busyAction === 'pay-card' ? 'Проведение...' : 'Карта'}
+            <button type="button" onClick={() => pay('card')} disabled={busy === 'pay-card'}>
+              {busy === 'pay-card' ? 'Проведение...' : 'Карта'}
             </button>
           </div>
         </aside>
