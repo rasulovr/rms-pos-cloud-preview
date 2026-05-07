@@ -1,6 +1,12 @@
-import React from 'react'
-import { createRoot } from 'react-dom/client'
-import App from './App.jsx'
-import './styles.css'
-
-createRoot(document.getElementById('root')).render(<App />)
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>RMS POS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./src/main.jsx"></script>
+  </body>
+</html>
